@@ -203,30 +203,109 @@ billings_share_to_date_fig = create_billings_share_figure(total_2023, total_2024
 #billings_share_to_date_fig.show()
 
 
+
+
 # #####################
 # # Streamlit App
 # #####################
 st. set_page_config(layout="wide")
-col1, col2, col3 = st.columns([1, 1, 1])
 st.title('Principal Podiatry Billings Summary')
-st.write('This app provides a summary of your billings data')
 
-st.header('Running Total of Share from January 1 to One Year Ago Today')
-col1, col2, col3 = st.columns([1, 1, 1])
-with col2:
+
+col1, col2, col3 = st.columns([2, .5, 5])
+with col1:
+    st.subheader('Running Total of Share from January 1 to One Year Ago Today')
     st.pyplot(billings_share_to_date_fig)
+with col3: 
+    st.subheader('Number of Days Worked')
+    st.write("Number of days worked in 2023:", num_days_worked_2023)
+    st.write("Number of days worked 2024:", num_days_worked_2024)
+    st.write(days_worked_mnthly)
 
-st.header('Number of Days Worked')
-st.write("Number of days worked in 2023:", num_days_worked_2023)
-st.write("Number of days worked 2024:", num_days_worked_2024)
-st.write(days_worked_mnthly)
+    st.subheader('Monthly Share')
+    st.dataframe(monthly_share, height = 120)
 
-st.header('Monthly Share')
-st.dataframe(monthly_share)
+col4, col5 = st.columns([1, 1])
+with col4:
+    st.subheader('Monthly Share by Clinic')
+    st.pyplot(saved_clinic_by_month_share_fig)
+    
 
-st.header('Monthly Share by Clinic')
-st.pyplot(saved_clinic_by_month_share_fig)
-st.dataframe(monthly_share_clinic, height = 800)
+with col5:
+    st.markdown('##')
+    st.markdown('##')
+    st.dataframe(monthly_share_clinic, height = 700)
 
-st.header('Total Billings')
+st.subheader('Total Billings')
 st.pyplot(billings_per_month_year_comparison_fig)
+
+
+
+#####################
+# Calculate primary bililngs for period
+#####################
+#this part of the code will allow the user to select a date range, select clinic(s) and then calculate the billings for that period
+#the user will be able to select the date range and the clinic(s) they want to calculate the billings for
+#the user will then be able to see the billings for that period
+st.subheader('Calculate Billings for a Period')
+
+# Layout columns
+col31, col32, col33 = st.columns([1, 1, 1])
+with col31:  
+    st.write('Select the date range and clinic(s) to calculate billings for that period')
+    start_date_selection = st.date_input('Start Date', datetime.date(2024, 1, 1))
+    end_date_selection = st.date_input('End Date', datetime.date(2024, 1, 1))
+
+with col32:
+    st.write('Select the clinic(s) to calculate billings for that period')
+    clinics = list(df['Clinic'].unique())
+    selected_clinics = st.multiselect('Select Clinic(s)', clinics, default=clinics)
+
+with col33:
+    st.write('Select the types of billing to include in the calculation')
+    
+    # List of billing type columns
+    billing_columns = ['Share', 'Gross', 'Materials Cost', 'Clinic Hours', 'EPC', 'Private', 'DVA']
+    
+    # Create checkboxes for each billing type and store their selected status
+    selected_billing_types = {}
+    for billing_type in billing_columns:
+        selected_billing_types[billing_type] = st.checkbox(billing_type, value=True)
+
+# Add a "Submit" button
+if st.button('Submit'):
+    # Convert date input to pandas datetime
+    start_date_selection = pd.to_datetime(start_date_selection)
+    end_date_selection = pd.to_datetime(end_date_selection)
+
+    # Filter the DataFrame based on the user's selections
+    filtered_df = df[
+        (df['Date'] >= start_date_selection) & 
+        (df['Date'] <= end_date_selection) & 
+        (df['Clinic'].isin(selected_clinics))
+    ]
+
+    # Sum up the amounts based on selected billing types
+    total_billing = 0
+    for billing_type, include in selected_billing_types.items():
+        if include:
+            total_billing += filtered_df[billing_type].fillna(0).sum()
+    
+    total_billing_share = filtered_df['Share'].sum()
+    total_billing_gross = filtered_df['Gross'].sum()
+    total_count_epc = filtered_df['EPC'].sum()
+    total_income_epc = total_count_epc * 58.3
+
+    # Display the results
+    st.write('Total Billing Amount:', total_billing)
+    st.write('Total Share:', total_billing_share)
+    st.write('Total Gross:', total_billing_gross)
+    st.write('Total EPC:', total_count_epc)
+    st.write('Total Income from EPC:', total_income_epc)
+    
+    st.write('Detailed Breakdown (showing only selected billing types):')
+    # Only include columns that have been selected
+    selected_columns = [col for col, include in selected_billing_types.items() if include]
+    st.write(filtered_df[['Date', 'Clinic'] + selected_columns])
+else:
+    st.write('Please select your criteria and press "Submit" to calculate the billings.')
