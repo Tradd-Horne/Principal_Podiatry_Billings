@@ -10,7 +10,7 @@ url_2023 = 'https://docs.google.com/spreadsheets/d/1h-M5bVLZ9-m4R6-7oLpibkRRL7d9
 
 df = pd.read_csv(url_2024) # Reading the data into a pandas DataFrame
 df2 = pd.read_csv(url_2023) # Reading the data into a pandas DataFrame
-df = pd.concat([df, df2], ignore_index=True)
+df = pd.concat([df, df2], ignore_index=True) # Concatenate the two dataframes
 
 # ##########################
 # # Data Cleaning
@@ -31,12 +31,10 @@ df['Clinic'] = df['Clinic'].astype('category') # Convert clinic to category
 numerical_cols = ['Clinic Hours', 'EPC', 'Private', 'Other Private', 'DVA']
 for col in numerical_cols:
     df[col] = pd.to_numeric(df[col], errors='coerce')  # Coerce errors turns non-convertible values into NaN
-#st.write(df.head()) # Display the first 5 rows of the DataFrame
 
 # ##########################
 # # Number of days worked
 # ##########################
-
 # Filter data for 2023
 start_date_2023 = datetime.date(2023, 1, 1)
 end_date_2023 = datetime.date(2023, 12, 31)
@@ -119,12 +117,23 @@ year_2023 = monthly_share.loc[2023.0].values
 year_2024 = monthly_share.loc[2024.0].values
 months = monthly_share.columns[0:]
 bar_width = 0.35
-x = np.arange(len(months)) # Generate x values for the bars)
+x = np.arange(len(months))  # Generate x values for the bars
 
 # Plotting the data
 fig, ax = plt.subplots(figsize=(10, 6))
-ax.bar(x - bar_width/2, year_2023[:len(months)], width=bar_width, alpha=0.5, label='2023')
-ax.bar(x + bar_width/2, year_2024[:len(months)], width=bar_width, alpha=0.5, label='2024')
+bars_2023 = ax.bar(x - bar_width/2, year_2023[:len(months)], width=bar_width, alpha=0.5, label='2023')
+bars_2024 = ax.bar(x + bar_width/2, year_2024[:len(months)], width=bar_width, alpha=0.5, label='2024')
+
+# Add value labels on top of the bars
+for bar in bars_2023:
+    height = bar.get_height()
+    ax.text(bar.get_x() + bar.get_width()/2, height, f'{height:.2f}', ha='center', va='bottom', rotation=90)
+
+for bar in bars_2024:
+    height = bar.get_height()
+    ax.text(bar.get_x() + bar.get_width()/2, height, f'{height:.2f}', ha='center', va='bottom', rotation=90)
+
+# Setting labels and titles
 ax.set_xlabel('Month')
 ax.set_ylabel('Billings')
 ax.set_title('Comparison of Billings per Month (2023 vs 2024)')
@@ -134,7 +143,6 @@ ax.set_xticklabels(labels=months, rotation=45)
 fig.tight_layout()
 
 billings_per_month_year_comparison_fig = fig
-#st.pyplot(billings_per_month_year_comparison_fig)
 
 # ##########
 # #Billings share to today's date
@@ -202,9 +210,6 @@ def create_billings_share_figure(total_2023, total_2024, full_2023_total):
 billings_share_to_date_fig = create_billings_share_figure(total_2023, total_2024, full_2023_total)
 #billings_share_to_date_fig.show()
 
-
-
-
 # #####################
 # # Streamlit App
 # #####################
@@ -212,32 +217,23 @@ st. set_page_config(layout="wide")
 st.title('Principal Podiatry Billings Summary')
 
 
-col1, col2, col3 = st.columns([2, .5, 5])
-with col1:
-    st.subheader('Running Total of Share from January 1 to One Year Ago Today')
+col1, col2, col3 = st.columns([2, 4, 2])
+with col2:
+    st.subheader('Running Total Share 2023- 2024')
     st.pyplot(billings_share_to_date_fig)
-with col3: 
+
+col21, col22, col23 = st.columns([1, 4, 1])
+with col22:
     st.subheader('Number of Days Worked')
     st.write("Number of days worked in 2023:", num_days_worked_2023)
     st.write("Number of days worked 2024:", num_days_worked_2024)
     st.write(days_worked_mnthly)
 
-    st.subheader('Monthly Share')
-    st.dataframe(monthly_share, height = 120)
+    st.subheader('Total Billings')
+    st.pyplot(billings_per_month_year_comparison_fig)
 
-col4, col5 = st.columns([1, 1])
-with col4:
     st.subheader('Monthly Share by Clinic')
     st.pyplot(saved_clinic_by_month_share_fig)
-    
-
-with col5:
-    st.markdown('##')
-    st.markdown('##')
-    st.dataframe(monthly_share_clinic, height = 700)
-
-st.subheader('Total Billings')
-st.pyplot(billings_per_month_year_comparison_fig)
 
 
 
@@ -258,8 +254,17 @@ with col31:
 
 with col32:
     st.write('Select the clinic(s) to calculate billings for that period')
+
+    # List of unique clinic names
     clinics = list(df['Clinic'].unique())
-    selected_clinics = st.multiselect('Select Clinic(s)', clinics, default=clinics)
+
+    # Create a dictionary to store the state of each checkbox
+    selected_clinic_states = {}
+    for clinic in clinics:
+        # Initialize a checkbox for each clinic
+        selected_clinic_states[clinic] = st.checkbox(clinic, value=True)
+        # Extract only the selected clinics
+    selected_clinics = [clinic for clinic, is_selected in selected_clinic_states.items() if is_selected]
 
 with col33:
     st.write('Select the types of billing to include in the calculation')
